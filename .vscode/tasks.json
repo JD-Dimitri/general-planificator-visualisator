@@ -1,0 +1,66 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "GPV : tout démarrer",
+      "dependsOn": ["API (port 8000)", "Front (port 5173)"],
+      "dependsOrder": "parallel",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "API (port 8000)",
+      "type": "shell",
+      "command": "php -S 127.0.0.1:8000 -t public",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "isBackground": true,
+      "presentation": { "group": "gpv", "panel": "dedicated" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Front (port 5173)",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "isBackground": true,
+      "presentation": { "group": "gpv", "panel": "dedicated" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Installer les dépendances",
+      "type": "shell",
+      "command": "composer install && cd ../frontend && npm install",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Base : recréer et garnir",
+      "type": "shell",
+      "command": "composer db:reset",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Tests de l'API",
+      "type": "shell",
+      "command": "php vendor/bin/phpunit",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Front : vérifier les types",
+      "type": "shell",
+      "command": "npm run lint",
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Préparer le dépôt pour o2switch",
+      "type": "shell",
+      "command": "./deploy/o2switch/build.sh",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    }
+  ]
+}

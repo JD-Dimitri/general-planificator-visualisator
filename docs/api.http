@@ -1,0 +1,56 @@
+# Essayer l'API sans quitter VS Code, avec l'extension REST Client.
+# Clique sur « Send Request » au-dessus de chaque bloc.
+@base = http://127.0.0.1:8000/api
+
+### Santé du service
+GET {{base}}/health
+
+### Créer un compte — renvoie un code (devCode en développement)
+# @name inscription
+POST {{base}}/auth/register
+Content-Type: application/json
+
+{ "email": "moi@gpv.local", "password": "un-mot-de-passe-assez-long", "displayName": "Moi" }
+
+### Valider le compte avec le code reçu
+POST {{base}}/auth/verify
+Content-Type: application/json
+
+{
+  "challengeId": "{{inscription.response.body.challenge.challengeId}}",
+  "code": "{{inscription.response.body.challenge.devCode}}"
+}
+
+### Connexion, étape 1
+# @name connexion
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "demo@gpv.local", "password": "motdepassededemo" }
+
+### Connexion, étape 2
+POST {{base}}/auth/login/verify
+Content-Type: application/json
+
+{
+  "challengeId": "{{connexion.response.body.challenge.challengeId}}",
+  "code": "{{connexion.response.body.challenge.devCode}}"
+}
+
+### Tout l'écran en une requête
+GET {{base}}/snapshot
+
+### Les domaines
+GET {{base}}/domains
+
+### Créer un domaine
+POST {{base}}/domains
+Content-Type: application/json
+
+{ "name": "Finances", "hue": 90, "goal": "Tenir mon budget" }
+
+### Mot de passe oublié
+POST {{base}}/auth/password/forgot
+Content-Type: application/json
+
+{ "email": "demo@gpv.local" }

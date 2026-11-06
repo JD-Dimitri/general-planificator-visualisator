@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Déboguer l'API (Xdebug)",
+      "type": "php",
+      "request": "launch",
+      "port": 9003,
+      "pathMappings": { "/app": "${workspaceFolder}/backend" }
+    },
+    {
+      "name": "Déboguer le front (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://127.0.0.1:5173",
+      "webRoot": "${workspaceFolder}/frontend/src"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "GPV : API + front",
+      "configurations": ["Déboguer l'API (Xdebug)", "Déboguer le front (Chrome)"]
+    }
+  ]
+}

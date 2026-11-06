@@ -1,0 +1,30 @@
+{
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+
+  "intelephense.environment.phpVersion": "8.3.0",
+  "intelephense.environment.includePaths": ["backend/vendor"],
+  "intelephense.files.exclude": [
+    "**/node_modules/**",
+    "**/backend/var/**",
+    "**/frontend/dist/**"
+  ],
+
+  "[php]": { "editor.tabSize": 4 },
+  "[javascript][typescript][typescriptreact][json][jsonc][css][html][yaml]": {
+    "editor.tabSize": 2,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+
+  "typescript.tsdk": "frontend/node_modules/typescript/lib",
+  "eslint.workingDirectories": ["frontend"],
+
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/backend/vendor": true,
+    "**/backend/var": true,
+    "**/frontend/dist": true
+  }
+}

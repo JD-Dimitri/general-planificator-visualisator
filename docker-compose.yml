@@ -1,30 +1,33 @@
-# Développement local. En production, l'hébergeur fournit PHP et PostgreSQL ;
+# Développement local. En production, l'hébergeur fournit PHP et la base ;
 # seules les variables d'environnement changent.
 services:
+  # MariaDB en local comme en production : un schéma qui marche sur un moteur
+  # et casse sur l'autre se découvre au pire moment, le jour de la mise en ligne.
   database:
-    image: postgres:16-alpine
+    image: mariadb:11.4
     environment:
-      POSTGRES_DB: gpv
-      POSTGRES_USER: gpv
-      POSTGRES_PASSWORD: gpv
+      MARIADB_DATABASE: gpv
+      MARIADB_USER: gpv
+      MARIADB_PASSWORD: gpv
+      MARIADB_ROOT_PASSWORD: gpv
     ports:
-      - '5432:5432'
+      - '3306:3306'
     volumes:
-      - database_data:/var/lib/postgresql/data
+      - database_data:/var/lib/mysql
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U gpv -d gpv']
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
 
   backend:
     image: php:8.3-cli
     working_dir: /app
     command: >
-      sh -c "php -S 0.0.0.0:8000 -t public"
+      sh -c "docker-php-ext-install pdo_mysql >/dev/null 2>&1 || true; php -S 0.0.0.0:8000 -t public"
     environment:
       APP_ENV: dev
-      DATABASE_URL: 'postgresql://gpv:gpv@database:5432/gpv?serverVersion=16&charset=utf8'
+      DATABASE_URL: 'mysql://gpv:gpv@database:3306/gpv?serverVersion=11.4.2-MariaDB&charset=utf8mb4'
       CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$$'
     ports:
       - '8000:8000'

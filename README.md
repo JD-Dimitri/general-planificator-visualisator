@@ -15,7 +15,8 @@ sur le grand écran.
 
 ## Démarrer
 
-Il faut PHP 8.2 ou plus, Composer, Node 20 ou plus, et PostgreSQL 16.
+Il faut PHP 8.2 ou plus, Composer, Node 20 ou plus, et MariaDB 10.6 ou plus
+(PostgreSQL fonctionne aussi : la migration s'adapte au moteur trouvé).
 
 ```bash
 make install     # dépendances PHP et JavaScript
@@ -27,6 +28,18 @@ make dev-web     # front sur http://127.0.0.1:5173
 
 Avec Docker, `docker compose up` lance la base, l'API et le front d'un coup ;
 il reste à faire `make keys` et `make db` la première fois.
+
+### Dans VS Code
+
+Ouvre le dossier `gpv`. VS Code propose les extensions utiles, puis :
+
+- **Ctrl+Maj+B** lance l'API et le front ensemble ;
+- **Terminal › Exécuter la tâche** donne les autres : installer, recréer la
+  base, tests, vérification des types, préparation du déploiement ;
+- **F5** attache Xdebug à l'API et Chrome au front ;
+- `docs/api.http` essaie chaque route sans quitter l'éditeur, avec
+  l'extension REST Client. Le code à usage unique s'y enchaîne tout seul
+  d'une requête à l'autre.
 
 Compte de démonstration : `demo@gpv.local` / `motdepassededemo`.
 
@@ -187,9 +200,15 @@ script injecté pourrait lire, à la différence d'un cookie HttpOnly.
 
 ## Déploiement
 
-`.platform.app.yaml` et `.platform/` visent Platform.sh. Le principe vaut pour
-Scalingo et Clever Cloud : construire le front, servir `backend/public` sur
-`/api` et `frontend/dist` sur le reste, lire `DATABASE_URL` dans l'environnement.
+**o2switch et les hébergements en cPanel** — `docs/o2switch.md` décrit la mise
+en ligne pas à pas, et `./deploy/o2switch/build.sh` prépare l'archive. Le code
+reste hors de la racine web ; Apache ne sert que le front compilé et un
+contrôleur frontal. La base est MySQL/MariaDB.
+
+**Plateformes managées** — `.platform.app.yaml` et `.platform/` visent
+Platform.sh. Le principe vaut pour Scalingo et Clever Cloud : construire le
+front, servir `backend/public` sur `/api` et `frontend/dist` sur le reste, lire
+`DATABASE_URL` dans l'environnement.
 
 À régler avant la première mise en ligne :
 
@@ -238,9 +257,10 @@ facturation.
 
 ## Notes
 
-La migration initiale est écrite à la main pour PostgreSQL et n'a pas été
-exécutée ici, faute d'accès à Packagist dans l'environnement de génération. Si
-elle bute sur quoi que ce soit, régénère-la :
+La migration initiale est écrite à la main et couvre MySQL/MariaDB comme
+PostgreSQL : seuls quelques types changent d'un moteur à l'autre, et ils sont
+rassemblés en haut de `up()`. Si elle bute sur quoi que ce soit, régénère-la
+contre ta base :
 
 ```bash
 rm backend/migrations/Version20261106120000.php
