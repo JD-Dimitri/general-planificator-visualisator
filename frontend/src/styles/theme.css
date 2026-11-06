@@ -671,3 +671,100 @@ a {
     transition: none !important;
   }
 }
+
+/* ---------- authentification ---------- */
+.password-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.password-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.eye {
+  flex: none;
+  width: 40px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  border-radius: 7px;
+  color: var(--muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.eye:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.eye[aria-pressed='true'] {
+  color: var(--accent);
+}
+
+.steps-head {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.steps-head .kind {
+  letter-spacing: 0.1em;
+}
+
+.code-input {
+  font: 600 28px/1 var(--f-mono);
+  letter-spacing: 0.4em;
+  text-align: center;
+  padding: 12px 9px !important;
+}
+
+.dev-code {
+  border: 1px dashed var(--warn);
+  color: var(--fg);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.dev-code b {
+  font-family: var(--f-mono);
+  letter-spacing: 0.2em;
+}
+
+.link-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.linkish {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 13.5px;
+  padding: 0;
+  text-align: left;
+}
+
+.linkish:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.ok-note {
+  background: color-mix(in oklab, var(--ok) 12%, var(--panel));
+  border: 1px solid var(--ok);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  margin-bottom: 10px;
+}

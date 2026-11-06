@@ -1,0 +1,8 @@
+# Le SMS est facultatif : sans TEXTER_DSN, GPV envoie le code par e-mail.
+when@dev: &notifier
+    framework:
+        notifier:
+            texter_transports: []
+
+when@test: *notifier
+when@prod: *notifier

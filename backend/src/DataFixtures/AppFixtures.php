@@ -29,6 +29,7 @@ final class AppFixtures extends Fixture
             ->setDisplayName('Compte de démonstration')
             ->setPlan(User::PLAN_CONNECTED)
             ->setPassword($this->hasher->hashPassword($user, 'motdepassededemo'));
+        $user->markVerified();
 
         $manager->persist($user);
         $this->seeder->seed($user);

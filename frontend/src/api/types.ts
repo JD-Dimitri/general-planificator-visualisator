@@ -4,10 +4,34 @@ export interface User {
   id: string
   email: string
   displayName: string
+  phone: string | null
   plan: 'free' | 'connected'
+  verified: boolean
   roles: string[]
   settings: Record<string, unknown>
   createdAt: string
+}
+
+/**
+ * Une demande de code en cours. L'API ne renvoie jamais le code lui-même,
+ * seulement de quoi afficher l'écran de saisie : par où il est parti, vers
+ * quelle adresse masquée, et combien de temps il reste.
+ *
+ * `devCode` n'existe qu'en développement, quand aucun e-mail ne part vraiment.
+ */
+export interface Challenge {
+  challengeId: string
+  channel: 'email' | 'sms'
+  destination: string
+  expiresIn: number
+  sent: boolean
+  devCode?: string
+}
+
+export interface ChallengeResponse {
+  status: 'code_sent'
+  message: string
+  challenge: Challenge
 }
 
 export interface Domain {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Dto;
 
+use App\Entity\LoginCode;
 use Symfony\Component\Validator\Constraints as Assert;
 
 final class RegisterInput
@@ -20,4 +21,11 @@ final class RegisterInput
 
     #[Assert\Length(max: 120)]
     public string $displayName = '';
+
+    /** Facultatif. Renseigné, il permet de recevoir le code par SMS. */
+    #[Assert\Regex(pattern: '/^\+[1-9]\d{6,17}$/', message: 'Numéro attendu au format international, par exemple +33612345678.')]
+    public ?string $phone = null;
+
+    #[Assert\Choice(choices: [LoginCode::CHANNEL_EMAIL, LoginCode::CHANNEL_SMS], message: 'Canal inconnu.')]
+    public string $channel = LoginCode::CHANNEL_EMAIL;
 }

@@ -43,17 +43,46 @@ GPV : comptes, domaines, sous-domaines imbriqués, éléments et leurs étapes, 
 directs, vacations, boîte de dépôt, séances de focus, jetons de rafraîchissement.
 La migration initiale les crée toutes.
 
-**Authentification, les deux modes**
+**Authentification en deux temps.** GPV ne s'ouvre pas sans compte, et le mot de
+passe seul n'ouvre jamais de session : il faut aussi un code à six chiffres,
+envoyé par e-mail ou par SMS, neuf à chaque connexion.
 
-| Usage | Route | Mécanisme |
+| Étape | Route | Ce qu'elle fait |
 | --- | --- | --- |
-| Web | `POST /api/auth/login` | Cookie de session, `SameSite=Lax`, HttpOnly |
-| Mobile, bureau | `POST /api/auth/token` | JWT (1 h) + jeton de rafraîchissement (30 j) |
+| Créer un compte | `POST /api/auth/register` | Compte non validé, code envoyé |
+| Valider | `POST /api/auth/verify` | Consomme le code, ouvre la session |
+| Connexion, 1 | `POST /api/auth/login` | Vérifie le mot de passe, envoie un code |
+| Connexion, 2 | `POST /api/auth/login/verify` | Consomme le code, ouvre la session |
+| Renvoyer | `POST /api/auth/code/resend` | Nouveau code, l'ancien cesse de valoir |
+| Mobile, 1 et 2 | `POST /api/auth/token`, `/token/verify` | Même parcours, rend un JWT |
 | Renouvellement | `POST /api/auth/refresh` | Rotation : l'ancien jeton est révoqué |
+| Oubli, demande | `POST /api/auth/password/forgot` | Envoie un lien, réponse identique pour toute adresse |
+| Oubli, contrôle | `GET /api/auth/password/reset/{token}` | Dit si le lien est encore valable |
+| Oubli, nouveau | `POST /api/auth/password/reset` | Change le mot de passe et connecte |
 
-Les jetons de rafraîchissement ne sont stockés qu'en empreinte SHA-256, et un
-jeton rejoué après rotation est refusé. Les tentatives de connexion sont limitées
-à dix par tranche de cinq minutes et par adresse IP.
+Ce qui tient cette partie debout :
+
+- le pare-feu n'a **pas** de `json_login`. Il ne doit exister aucune route où
+  adresse + mot de passe suffisent, sinon le code se contournerait. La session
+  est posée à la main, après la deuxième étape seulement ;
+- codes et jetons ne sont jamais stockés en clair : HMAC-SHA256 pour les codes,
+  SHA-256 pour les liens et les jetons de rafraîchissement ;
+- un code vit dix minutes, supporte cinq essais, ne sert qu'une fois, et un
+  nouveau code annule le précédent ;
+- un lien de réinitialisation vit une heure et ne sert qu'une fois ; changer le
+  mot de passe révoque les jetons et déconnecte les autres appareils ;
+- « mot de passe oublié » répond la même chose pour une adresse connue ou non,
+  et « mot de passe incorrect » ne se distingue pas de « compte inconnu » :
+  ces formulaires ne doivent pas servir à savoir qui est inscrit ;
+- huit codes par heure et par compte, cinq liens par heure, dix tentatives par
+  tranche de cinq minutes et par adresse IP.
+
+Le SMS demande un fournisseur payant (Twilio, OVH, Vonage) via `TEXTER_DSN`.
+Sans transport configuré, ou si l'envoi échoue, GPV bascule sur l'e-mail plutôt
+que de laisser quelqu'un attendre un code qui n'arrivera jamais.
+
+En développement, `EXPOSE_DEV_CODES=1` fait renvoyer le code et le lien par
+l'API : le parcours s'essaie sans serveur de mail. À laisser à `0` ailleurs.
 
 **API complète**
 
@@ -82,12 +111,16 @@ Les règles qui tiennent les données droites :
   même s'il est rouvert puis reterminé ;
 - une ligne fautive au milieu d'un import n'en laisse pas la moitié enregistrée.
 
-**Front React** — connexion et inscription, tableau des domaines, détail d'un
-domaine avec son arbre de sous-domaines, création et modification. Les jetons du
-thème GPV sont repris tels quels, en clair et en sombre.
+**Front React** — le parcours d'authentification en entier (connexion,
+inscription, saisie du code avec compte à rebours et renvoi, mot de passe
+oublié, écran de réinitialisation), l'œil qui montre ou masque les mots de
+passe, le tableau des domaines et le détail d'un domaine avec son arbre de
+sous-domaines. Les jetons du thème GPV sont repris tels quels, en clair et en
+sombre.
 
-**Tests** — 57 tests couvrent l'authentification, le cloisonnement entre comptes,
-la validation, les règles de l'arbre, la récurrence et l'instantané.
+**Tests** — 74 tests couvrent l'authentification en deux temps, la
+réinitialisation du mot de passe, le cloisonnement entre comptes, la validation,
+les règles de l'arbre, la récurrence et l'instantané.
 
 ```bash
 make test
@@ -99,9 +132,11 @@ make test
 
 L'API est complète. Ce qui manque est côté front et côté intégrations.
 
-- [ ] Porter les écrans restants : planning, Kanban, liste, calendrier, boîte de
-      dépôt, bloc-notes. Le front ne couvre pour l'instant que les domaines et
-      les sous-domaines ; `GET /api/snapshot` donne tout le reste en une requête.
+- [ ] Porter la disposition complète de la version autonome : bandeau avec
+      compteurs, trois colonnes, planning, Kanban, liste, calendrier, boîte de
+      dépôt, bloc-notes. Le front ne couvre pour l'instant que l'authentification,
+      les domaines et les sous-domaines ; `GET /api/snapshot` donne tout le
+      reste en une requête.
 - [ ] Import de fichiers (Word, PDF, Excel) : extraction dans le navigateur avec
       mammoth, pdf.js et SheetJS, puis envoi des lignes à `POST /api/inbox`
 - [ ] Mode Focus et mode Ambiance, portés depuis la version autonome ; les
@@ -164,7 +199,17 @@ APP_SECRET=<32 octets aléatoires>
 DATABASE_URL=<fourni par l'hébergeur>
 JWT_PASSPHRASE=<phrase secrète>
 CORS_ALLOW_ORIGIN=^https://gpv\.exemple\.fr$
+MAILER_DSN=<SMTP ou DSN de l'hébergeur>
+MAILER_SENDER="GPV <bonjour@gpv.exemple.fr>"
+APP_URL=https://gpv.exemple.fr
+EXPOSE_DEV_CODES=0
 ```
+
+`APP_SECRET` sert aussi à calculer l'empreinte des codes : le changer invalide
+tous les codes en circulation, ce qui est sans gravité, mais à savoir.
+`EXPOSE_DEV_CODES` doit rester à `0` : à `1`, l'API renvoie les codes en clair.
+Sans `MAILER_DSN` qui fonctionne, personne ne peut se connecter — c'est le
+premier réglage à vérifier après une mise en ligne.
 
 Les clés JWT ne vont jamais dans git. Génère-les à la main sur l'hébergeur, ou
 pose `JWT_SECRET_KEY` et `JWT_PUBLIC_KEY` en variables d'environnement.

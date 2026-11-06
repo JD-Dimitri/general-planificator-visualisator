@@ -10,6 +10,12 @@ services:
             int $jwtTtl: '%app.jwt_ttl%'
             int $refreshTtl: '%app.refresh_ttl%'
             bool $debug: '%kernel.debug%'
+            string $appSecret: '%kernel.secret%'
+            string $senderEmail: '%env(MAILER_SENDER)%'
+            string $appUrl: '%env(APP_URL)%'
+            # En développement, aucun e-mail ne part : l'API rend le code et le
+            # lien pour pouvoir essayer le parcours. Jamais ailleurs qu'en dev.
+            bool $exposeCodes: '%env(bool:EXPOSE_DEV_CODES)%'
 
     App\:
         resource: '../src/'
@@ -17,3 +23,9 @@ services:
             - '../src/DependencyInjection/'
             - '../src/Entity/'
             - '../src/Kernel.php'
+
+    # Le transport SMS est facultatif. « @? » injecte null s'il n'est pas configuré,
+    # et CodeNotifier bascule alors sur l'e-mail.
+    App\Service\Notification\CodeNotifier:
+        arguments:
+            $texter: '@?texter'

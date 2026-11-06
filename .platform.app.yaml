@@ -62,7 +62,7 @@ hooks:
     php bin/console cache:clear
 
 crons:
-  purge-refresh-tokens:
+  purge-expired:
     spec: '0 4 * * *'
     commands:
-      start: 'cd backend && php bin/console app:purge-refresh-tokens'
+      start: 'cd backend && php bin/console app:purge-expired'

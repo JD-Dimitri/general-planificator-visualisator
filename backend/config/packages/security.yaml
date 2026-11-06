@@ -26,21 +26,16 @@ security:
             stateless: false
             context: gpv
             entry_point: App\Security\ApiEntryPoint
-            json_login:
-                check_path: api_auth_login
-                username_path: email
-                password_path: password
-                success_handler: App\Security\LoginSuccessHandler
-                failure_handler: App\Security\LoginFailureHandler
+            # Pas de `json_login` : le mot de passe seul ne doit ouvrir aucune
+            # session. La connexion se fait en deux temps dans AuthController,
+            # et la session n'est posée qu'après le code à usage unique.
             jwt: ~
-            login_throttling:
-                limiter: limiter.login
             logout:
                 path: api_auth_logout
                 invalidate_session: true
 
     access_control:
-        - { path: ^/api/auth/(login|register|token|refresh)$, roles: PUBLIC_ACCESS }
+        - { path: '^/api/auth/(register|verify|login|login/verify|token|token/verify|refresh|code/resend|password/forgot|password/reset)', roles: PUBLIC_ACCESS }
         - { path: ^/api/health$, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: ROLE_USER }
 

@@ -46,6 +46,7 @@ abstract class ApiTestCase extends WebTestCase
         $user->setEmail($email)
             ->setDisplayName('Testeur')
             ->setPassword($hasher->hashPassword($user, 'motdepassedetest'));
+        $user->markVerified();
 
         $this->em->persist($user);
 

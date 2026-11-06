@@ -55,6 +55,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Groups(['read'])]
     private string $plan = self::PLAN_FREE;
 
+    /**
+     * Numéro de téléphone, au format international. Sert de second canal pour
+     * le code à usage unique quand l'utilisateur en fournit un.
+     */
+    #[ORM\Column(length: 30, nullable: true)]
+    #[Assert\Regex(pattern: '/^\\+[1-9]\\d{6,17}$/', message: 'Numéro attendu au format international, par exemple +33612345678.')]
+    #[Groups(['read', 'write'])]
+    private ?string $phone = null;
+
+    /**
+     * Date de validation du compte par code à usage unique. Tant qu'elle est
+     * nulle, le compte existe mais n'a jamais prouvé l'accès à sa boîte mail.
+     */
+    #[ORM\Column(nullable: true)]
+    #[Groups(['read'])]
+    private ?\DateTimeImmutable $verifiedAt = null;
+
     /** Préférences d'interface : thème, ambiance, durées du minuteur. */
     #[ORM\Column(type: 'json')]
     #[Groups(['read', 'write'])]
@@ -148,6 +165,37 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function hasConnectedPlan(): bool
     {
         return self::PLAN_CONNECTED === $this->plan;
+    }
+
+    public function getPhone(): ?string
+    {
+        return $this->phone;
+    }
+
+    public function setPhone(?string $phone): static
+    {
+        $phone = null !== $phone ? preg_replace('/[\s.-]/', '', trim($phone)) : null;
+        $this->phone = '' === $phone ? null : $phone;
+
+        return $this;
+    }
+
+    public function getVerifiedAt(): ?\DateTimeImmutable
+    {
+        return $this->verifiedAt;
+    }
+
+    #[Groups(['read'])]
+    public function isVerified(): bool
+    {
+        return null !== $this->verifiedAt;
+    }
+
+    public function markVerified(): static
+    {
+        $this->verifiedAt ??= new \DateTimeImmutable();
+
+        return $this;
     }
 
     public function getSettings(): array

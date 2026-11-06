@@ -37,6 +37,8 @@ final class Version20261106120000 extends AbstractMigration
                 password VARCHAR(255) NOT NULL,
                 display_name VARCHAR(120) NOT NULL,
                 plan VARCHAR(20) NOT NULL,
+                phone VARCHAR(30) DEFAULT NULL,
+                verified_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
                 settings JSON NOT NULL,
                 created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
                 PRIMARY KEY (id)
@@ -219,11 +221,44 @@ final class Version20261106120000 extends AbstractMigration
         $this->addSql('CREATE UNIQUE INDEX uniq_refresh_token_hash ON refresh_token (token_hash)');
         $this->addSql('CREATE INDEX idx_refresh_token_owner ON refresh_token (owner_id)');
         $this->addSql('ALTER TABLE refresh_token ADD CONSTRAINT fk_refresh_token_owner FOREIGN KEY (owner_id) REFERENCES app_user (id) ON DELETE CASCADE');
+
+        $this->addSql(<<<'SQL'
+            CREATE TABLE login_code (
+                id UUID NOT NULL,
+                user_id UUID NOT NULL,
+                purpose VARCHAR(20) NOT NULL,
+                channel VARCHAR(10) NOT NULL,
+                masked_destination VARCHAR(180) NOT NULL,
+                code_hash VARCHAR(64) NOT NULL,
+                attempts INT NOT NULL,
+                expires_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                consumed_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
+                PRIMARY KEY (id)
+            )
+        SQL);
+        $this->addSql('CREATE INDEX idx_login_code_user ON login_code (user_id)');
+        $this->addSql('ALTER TABLE login_code ADD CONSTRAINT fk_login_code_user FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE');
+
+        $this->addSql(<<<'SQL'
+            CREATE TABLE password_reset_token (
+                id UUID NOT NULL,
+                user_id UUID NOT NULL,
+                token_hash VARCHAR(64) NOT NULL,
+                expires_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                used_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
+                PRIMARY KEY (id)
+            )
+        SQL);
+        $this->addSql('CREATE UNIQUE INDEX uniq_password_reset_hash ON password_reset_token (token_hash)');
+        $this->addSql('CREATE INDEX idx_password_reset_user ON password_reset_token (user_id)');
+        $this->addSql('ALTER TABLE password_reset_token ADD CONSTRAINT fk_password_reset_user FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE');
     }
 
     public function down(Schema $schema): void
     {
-        foreach (['refresh_token', 'focus_session', 'inbox_entry', 'shift', 'access_link', 'subtask', 'item', 'sub_domain', 'domain', 'app_user'] as $table) {
+        foreach (['password_reset_token', 'login_code', 'refresh_token', 'focus_session', 'inbox_entry', 'shift', 'access_link', 'subtask', 'item', 'sub_domain', 'domain', 'app_user'] as $table) {
             $this->addSql(\sprintf('DROP TABLE IF EXISTS %s CASCADE', $table));
         }
     }
