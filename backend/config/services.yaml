@@ -1,0 +1,19 @@
+parameters:
+    app.jwt_ttl: '%env(int:JWT_TTL)%'
+    app.refresh_ttl: '%env(int:REFRESH_TOKEN_TTL)%'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        bind:
+            int $jwtTtl: '%app.jwt_ttl%'
+            int $refreshTtl: '%app.refresh_ttl%'
+            bool $debug: '%kernel.debug%'
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'

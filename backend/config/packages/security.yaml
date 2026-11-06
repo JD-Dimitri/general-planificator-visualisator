@@ -1,0 +1,52 @@
+security:
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
+
+    providers:
+        app_users:
+            entity:
+                class: App\Entity\User
+                property: email
+
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+
+        # Délivre un couple jeton JWT + jeton de rafraîchissement (mobile, bureau).
+        token:
+            pattern: ^/api/auth/token$
+            stateless: true
+            security: false
+
+        # Le web : cookie de session. Le mobile et le bureau : en-tête Authorization.
+        api:
+            pattern: ^/api
+            provider: app_users
+            stateless: false
+            context: gpv
+            entry_point: App\Security\ApiEntryPoint
+            json_login:
+                check_path: api_auth_login
+                username_path: email
+                password_path: password
+                success_handler: App\Security\LoginSuccessHandler
+                failure_handler: App\Security\LoginFailureHandler
+            jwt: ~
+            login_throttling:
+                limiter: limiter.login
+            logout:
+                path: api_auth_logout
+                invalidate_session: true
+
+    access_control:
+        - { path: ^/api/auth/(login|register|token|refresh)$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/health$, roles: PUBLIC_ACCESS }
+        - { path: ^/api, roles: ROLE_USER }
+
+when@test:
+    security:
+        password_hashers:
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+                algorithm: plaintext
+                cost: 4

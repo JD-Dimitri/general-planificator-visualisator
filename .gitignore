@@ -1,0 +1,10 @@
+/backend/vendor/
+/backend/var/
+/backend/.env.local
+/backend/.env.*.local
+/backend/config/jwt/*.pem
+/backend/.phpunit.cache/
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.env
+.DS_Store
