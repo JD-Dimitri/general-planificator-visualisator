@@ -11,6 +11,9 @@ Le dossier `standalone/` contient l'autre version : un seul fichier HTML, sans
 compte ni serveur, qui fonctionne hors ligne. C'est celle qui tourne aujourd'hui
 sur le grand écran.
 
+Le dossier `claude-ai/` contient la version qui tourne sur claude.ai, qui
+réunit les fonctionnalités des deux et sert de référence pour la version produit.
+
 ---
 
 ## Démarrer
