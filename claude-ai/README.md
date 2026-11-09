@@ -32,6 +32,7 @@ Elle réunit trois sources :
 | Mode mural (marges de 1,4 mm, écran gardé allumé) et plein écran | non | ajoutés |
 | Accès ouverts dans une fenêtre posée au-dessus de GPV | non | ajouté (bouton onglet / fenêtre) |
 | Recherche globale Ctrl+K | recherche sans raccourci | raccourci ajouté |
+| Import du planning PDF de l'employeur (G2S / Comète) : les vacations du mois vont dans le planning et le calendrier, un nouveau planning du même mois remplace l'ancien | non | ajouté (bouton « Importer le planning (PDF) », ou glisser le PDF) |
 | Export / import JSON, lecture des sauvegardes de A | non | ajoutés |
 | « Effacer les exemples » | non | ajouté |
 | Boîte d'entrée | oui (Capture, plus complète) | inchangée |

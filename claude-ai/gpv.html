@@ -488,7 +488,7 @@ body.filedrag::after{content:"Dépose les fichiers : ils vont dans la boîte de 
   <!-- Colonne gauche : aujourd'hui -->
   <section class="col">
     <div class="panel">
-      <div class="ph"><h2>Planning 7 jours</h2><span class="sp"></span><button class="btn small" id="addShift">+ Vacation</button></div>
+      <div class="ph"><h2>Planning 7 jours</h2><span class="sp"></span><label class="btn small" for="planPdf" title="Le PDF de planning envoyé par l'employeur : les vacations du mois sont ajoutées au planning et au calendrier">Importer le planning (PDF)</label><input type="file" id="planPdf" accept="application/pdf,.pdf" hidden><button class="btn small" id="addShift">+ Vacation</button></div>
       <div id="planning"><div class="empty">Chargement du planning…</div></div>
       <div class="status" id="calStatus"></div>
     </div>
@@ -2136,6 +2136,7 @@ async function fileToItems(file){
   return null;
 }
 async function onImportFiles(files){
+  if(window.GPVX&&window.GPVX.planningFiles){ const n=files.length; if(n) { M.imp={label:files.length>1?n+" fichiers":files[0].name,items:[],loading:true}; renderImport(); } files=await window.GPVX.planningFiles(files); if(!files.length){ M.imp=null; M.panel=""; renderCapture(); return; } }
   if(files.length===1) return onImportFile(files[0]);
   M.imp={label:files.length+" fichiers",items:[],loading:true}; renderImport(); let all=[],labels=[],errs=[];
   for(const f of files){ try{ const r=await readImport(f); all=all.concat(r.items); labels.push(f.name); }catch(e){ errs.push(f.name+" : "+(e.message||"illisible")); } }
@@ -2532,7 +2533,9 @@ window.addEventListener("dragleave",e=>{ if(hasFiles(e)){ dragDepth=Math.max(0,d
 window.addEventListener("dragover",e=>{ if(hasFiles(e)) e.preventDefault(); });
 window.addEventListener("drop",e=>{ if(!hasFiles(e)||!e.dataTransfer.files.length) return; e.preventDefault(); dragDepth=0; document.body.classList.remove("filedrag");
   if(e.target.closest&&e.target.closest("#overlay,[data-pane='coffre']")) return;
-  const fs=[...e.dataTransfer.files]; M.panel="import"; if(M.view!=="capture") location.hash="capture"; setTimeout(()=>{ renderCapture(); onImportFiles(fs); },50); });
+  const fs=[...e.dataTransfer.files];
+  (async()=>{ const rest=window.GPVX&&window.GPVX.planningFiles?await window.GPVX.planningFiles(fs):fs; if(!rest.length) return;
+    M.panel="import"; if(M.view!=="capture") location.hash="capture"; setTimeout(()=>{ renderCapture(); onImportFiles(rest); },50); })(); });
 /* glisser-déposer de l'Atelier */
 document.addEventListener("dragstart",e=>{ const d=e.target.closest&&e.target.closest("[data-adrag]"); if(!d) return; e.dataTransfer.setData("text/gpv-fiche",d.dataset.adrag); e.dataTransfer.effectAllowed="move"; });
 document.addEventListener("dragover",e=>{ const c=e.target.closest&&e.target.closest("[data-astage]"); if(!c||!e.dataTransfer.types.includes("text/gpv-fiche")) return; e.preventDefault(); document.querySelectorAll(".acol.over").forEach(x=>{if(x!==c)x.classList.remove("over");}); c.classList.add("over"); });
@@ -2680,7 +2683,7 @@ function center(view){
   const m=new Date(X.cal+"T12:00:00"), y=m.getFullYear(), mo=m.getMonth(), first=new Date(y,mo,1), off=(first.getDay()+6)%7, start=new Date(y,mo,1-off), t0=today();
   let cells="";
   for(let i=0;i<42;i++){ const d=new Date(start); d.setDate(start.getDate()+i); const k=G.iso(d); const chips=[];
-    if(!sc.dom) st.shifts.filter(s=>s.date===k).forEach(s=>chips.push(`<button class="cchip" style="--h:10" data-shift="${esc(s.id)}">${esc(s.start||"")} ${esc(s.place||"Vacation")}</button>`));
+    if(!sc.dom) st.shifts.filter(s=>s.date===k).forEach(s=>chips.push(`<button class="cchip" style="--h:10" data-shift="${esc(s.id)}" title="${esc((s.start||"")+"–"+(s.end||"")+" · "+(s.place||"Vacation")+(s.address?" · "+s.address:""))}">${esc(s.start||"")} ${esc(s.place||"Vacation")}</button>`));
     sc.list.filter(t=>t.due===k).sort((a,b)=>(a.time||"99").localeCompare(b.time||"99")).forEach(t=>chips.push(`<button class="cchip ${G.isDone(t)?"done":""}" style="--h:${G.hueOf(t.domainId)}" data-task="${esc(t.id)}" title="${esc(whereLabel(t)+" — "+t.title)}">${t.time?esc(t.time)+" ":""}${esc(t.title)}</button>`));
     sc.list.forEach(t=>(t.subtasks||[]).filter(x=>x.due===k&&!x.done).forEach(x=>chips.push(`<button class="cchip" style="--h:${G.hueOf(t.domainId)}" data-task="${esc(t.id)}">${esc(x.title)}</button>`)));
     cells+=`<div class="cday ${d.getMonth()!==mo?"out":""} ${k===t0?"today":""}" data-calday="${k}" title="Ajouter une tâche le ${d.toLocaleDateString("fr-FR")}"><span class="cnum">${d.getDate()}</span>${chips.slice(0,4).join("")}${chips.length>4?`<span class="cmore">+${chips.length-4}</span>`:""}</div>`; }
@@ -3024,8 +3027,98 @@ document.addEventListener("gpv:data",e=>{
   if(e.detail==="tasks"||e.detail==="shifts"){ const ex=st.tasks.some(t=>t.example)||st.shifts.some(s=>s.example); const b=$("#clearEx"); if(b) b.hidden=!ex; }
 });
 
+/* ================= planning PDF de l'employeur → vacations ================= */
+const MOIS=["janvier","fevrier","mars","avril","mai","juin","juillet","aout","septembre","octobre","novembre","decembre"];
+/* items : [{s, x, y, w}] avec y croissant vers le bas. Renvoie null si ce n'est pas un planning. */
+function planningFromItems(items,text,fname){
+  const words=[]; items.forEach(it=>{ const s=String(it.s||""); if(!s.trim()) return; const parts=s.split(/(\s+)/); const cw=(it.w||s.length*5)/Math.max(1,s.length); let off=0;
+    parts.forEach(p=>{ if(p.trim()) words.push({s:p.trim(),x:it.x+off*cw,w:p.length*cw,y:it.y}); off+=p.length; }); });
+  const cx=w=>w.x+w.w/2;
+  /* rangée des jours : la ligne qui contient le plus de nombres 01..31 qui se suivent */
+  const rows={}; words.filter(w=>/^\d{1,2}$/.test(w.s)&&+w.s>=1&&+w.s<=31).forEach(w=>{ const k=Math.round(w.y); (rows[k]=rows[k]||[]).push(w); });
+  let best=null; Object.values(rows).forEach(r=>{ r.sort((a,b)=>a.x-b.x); let run=1,mx=1; for(let i=1;i<r.length;i++){ run=(+r[i].s===+r[i-1].s+1)?run+1:1; mx=Math.max(mx,run); } if(mx>=20&&(!best||r.length>best.length)) best=r; });
+  if(!best) return null;
+  const days=best, dayY=days[0].y, colW=(cx(days[days.length-1])-cx(days[0]))/Math.max(1,days.length-1), x0=days[0].x-colW*0.3;
+  /* mois et année */
+  const flat=norm(text).replace(/\s+/g," "); let y=null,m=null;
+  const mm=flat.match(new RegExp("("+MOIS.join("|")+") ?(20\\d\\d)"));
+  if(mm){ m=MOIS.indexOf(mm[1])+1; y=+mm[2]; }
+  else { const f=String(fname||"").match(/(20\d\d)[-_ ]?(0[1-9]|1[0-2])/)||flat.match(/mois ?=? ?(20\d\d)(0[1-9]|1[0-2])/); if(f){ y=+f[1]; m=+f[2]; } }
+  if(!y) return null;
+  /* fin du tableau : « Total… » ou « Site : » sous la rangée des jours */
+  const stops=words.filter(w=>w.y>dayY+4&&/^(Total|Site|Légende|Legende)/i.test(w.s)).map(w=>w.y);
+  const endY=stops.length?Math.min(...stops):Infinity;
+  const inGrid=words.filter(w=>w.y>dayY+4&&w.y<endY-1);
+  const colOf=w=>{ if(w.x<x0) return -1; let k=-1,d=1e9; days.forEach((dd,i)=>{ const e=Math.abs(cx(dd)-cx(w)); if(e<d){ d=e; k=i; } }); return d<=colW*0.6?k:-1; };
+  const isTime=s=>/^\d{1,2}[:hH]\d{2}$/.test(s), fmt=s=>{ const p=s.split(/[:hH]/); return String(p[0]).padStart(2,"0")+":"+p[1]; };
+  const labels=inGrid.filter(w=>w.x<x0-2&&!isTime(w.s)).sort((a,b)=>a.y-b.y);
+  /* légende : « J01 : ADS (...) de 08:00 à 20:00 » et « Site : CODE - NOM - adresse » */
+  const legend={}; String(text).split(/\n/).forEach(l=>{ const g=l.match(/\b([A-Z]{1,4}\d{0,3})\s*:\s*(.+?)\bde\s+(\d{1,2}[:hH]\d{2})\s+[àa]\s+(\d{1,2}[:hH]\d{2})/); if(g) legend[g[1]]={label:g[2].trim(),start:fmt(g[3]),end:fmt(g[4])}; });
+  const sites=[]; String(text).split(/\n/).forEach(l=>{ const g=l.match(/Site\s*:\s*([^-]+?)\s+-\s+(.+?)\s+-\s+(.+?)(?:\s+-\s+Tel\s*:.*)?$/i); if(g) sites.push({code:g[1].trim(),name:g[2].trim(),addr:g[3].replace(/\s+-\s+/g," ").trim()}); });
+  const codes=inGrid.filter(w=>/^[A-Z]{1,4}\d{0,3}$/.test(w.s)&&!/^[DLMJVS]$/.test(w.s)&&colOf(w)>=0);
+  const out=[];
+  codes.forEach(c=>{
+    const col=colOf(c); const day=+days[col].s;
+    const lineWords=labels.filter(l=>l.y<=c.y+3); const ly=lineWords.length?lineWords[lineWords.length-1].y:null;
+    const siteName=ly===null?"":labels.filter(l=>Math.abs(l.y-ly)<3).sort((a,b)=>a.x-b.x).map(l=>l.s).join(" ");
+    const nextCode=codes.filter(o=>colOf(o)===col&&o.y>c.y+2).map(o=>o.y); const lim=nextCode.length?Math.min(...nextCode):endY;
+    const times=inGrid.filter(w=>isTime(w.s)&&colOf(w)===col&&w.y>c.y&&w.y<lim).sort((a,b)=>a.y-b.y).map(w=>fmt(w.s));
+    const lg=legend[c.s]||{}; const site=sites.find(s=>norm(s.name)===norm(siteName))||(sites.length===1?sites[0]:null);
+    out.push({date:`${y}-${String(m).padStart(2,"0")}-${String(day).padStart(2,"0")}`,start:times[0]||lg.start||"",end:times[1]||lg.end||"",place:siteName||(site?site.name:""),address:site?site.addr:"",code:c.s,role:lg.label||""});
+  });
+  out.sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
+  return {month:`${y}-${String(m).padStart(2,"0")}`,shifts:out};
+}
+async function pdfItems(file){
+  const base="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+  const load=src=>new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("load")); document.head.appendChild(s); });
+  if(!window.pdfjsLib){ await load(base+"pdf.min.js"); }
+  const lib=window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc=base+"pdf.worker.min.js";
+  const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise; const items=[], lines=[]; let top=0;
+  for(let i=1;i<=Math.min(pdf.numPages,6);i++){ const pg=await pdf.getPage(i); const vp=pg.getViewport({scale:1}); const tc=await pg.getTextContent();
+    let line="",lastY=null;
+    tc.items.forEach(it=>{ const yy=top+vp.height-it.transform[5]; items.push({s:it.str,x:it.transform[4],y:yy,w:it.width});
+      if(lastY!==null&&Math.abs(yy-lastY)>2){ lines.push(line); line=""; } line+=(line&&!/\s$/.test(line)&&it.str&&!/^\s/.test(it.str)?" ":"")+it.str; lastY=yy; });
+    if(line) lines.push(line); top+=vp.height+50; }
+  return {items,text:lines.join("\n")};
+}
+async function tryPlanning(file){
+  if(!/\.pdf$/i.test(file.name)&&file.type!=="application/pdf") return null;
+  try{ const {items,text}=await pdfItems(file); if(!/planning|vacation/i.test(text+" "+file.name)) return null; const r=planningFromItems(items,text,file.name); return r&&r.shifts.length?r:null; }catch(_){ return null; }
+}
+function showPlanning(file,P){
+  const existing=st.shifts.filter(s=>String(s.date).slice(0,7)===P.month);
+  const fromPlan=existing.filter(s=>s.source==="planning"), manual=existing.filter(s=>s.source!=="planning");
+  const key=s=>s.date+"|"+(s.start||"");
+  const manualKeys=new Set(manual.map(key));
+  const L=new Date(P.month+"-15T12:00:00").toLocaleDateString("fr-FR",{month:"long",year:"numeric"});
+  const hours=P.shifts.reduce((a,s)=>{ if(!s.start||!s.end) return a; const [h1,m1]=s.start.split(":").map(Number),[h2,m2]=s.end.split(":").map(Number); let d=(h2*60+m2)-(h1*60+m1); if(d<=0) d+=1440; return a+d; },0);
+  const ov=$("#overlay");
+  ov.innerHTML=`<div class="sheet wide"><h2>Planning de ${esc(L)}</h2>
+    <p>${esc(file.name)} : <b>${P.shifts.length} vacation${P.shifts.length>1?"s":""}</b>${hours?`, ${Math.round(hours/6)/10} h au total`:""}.</p>
+    <div class="impl" style="max-height:46vh">${P.shifts.map(s=>{ const dt=new Date(s.date+"T12:00:00"); const dup=manualKeys.has(key(s)); return `<div class="impr"><span class="mono">${esc(dt.toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"}))}</span><span class="mono">${esc(s.start||"?")}–${esc(s.end||"?")}${s.end&&s.start&&s.end<=s.start?" (+1 j)":""}</span><span>${esc(s.place||"")}${s.address?` <span class="note">· ${esc(s.address)}</span>`:""}${dup?' <span class="note">· déjà saisie à la main, ignorée</span>':""}</span></div>`; }).join("")}</div>
+    ${fromPlan.length?`<p class="note">${fromPlan.length} vacation(s) de ${esc(L)} viennent d'un planning importé avant. Elles seront remplacées par celui-ci (le planning peut avoir changé). Les vacations saisies à la main sont gardées.</p>`:'<p class="note">Les vacations saisies à la main pour ce mois sont gardées.</p>'}
+    <div class="status" id="pl_status"></div>
+    <div class="actions"><span class="sp"></span><button class="btn" id="pl_no">Annuler</button><button class="btn primary" id="pl_yes">Ajouter au planning</button></div></div>`;
+  ov.hidden=false; $("#pl_no").onclick=G.closeForm;
+  $("#pl_yes").onclick=async()=>{ const db=G.db; if(!db) return; const b=$("#pl_yes"); b.disabled=true; b.textContent="Ajout…";
+    try{ for(const s of fromPlan) await db.collection("shifts").doc(s.id).delete();
+      let n=0; for(const s of P.shifts){ if(manualKeys.has(key(s))) continue; await db.collection("shifts").doc("pl-"+s.date+"-"+(s.start||"x").replace(":","")+"-"+n).set({date:s.date,start:s.start,end:s.end,place:s.place,address:s.address||"",role:s.role||"",source:"planning",month:P.month,file:file.name,importedAt:nowIso()}); n++; }
+      G.closeForm(); toast(`${n} vacation${n>1?"s":""} de ${L} ajoutée${n>1?"s":""} au planning et au calendrier.`,6000);
+      if(location.hash==="#capture") location.hash="tableau"; st.center="calendrier"; X.cal=P.month+"-01"; G.renderFilters(); G.renderDomains();
+    }catch(e){ const x=$("#pl_status"); x.textContent=G.errText(e); x.className="status err"; b.disabled=false; b.textContent="Réessayer"; } };
+}
+/* renvoie les fichiers qui ne sont pas des plannings, après avoir proposé l'import de celui qui en est un */
+async function planningFiles(files){
+  const rest=[]; let shown=false;
+  for(const f of files){ const P=shown?null:await tryPlanning(f); if(P){ showPlanning(f,P); shown=true; } else rest.push(f); }
+  return rest;
+}
+
+document.addEventListener("change",async e=>{ const t=e.target; if(t.id!=="planPdf"||!t.files||!t.files[0]) return; const f=t.files[0]; t.value="";
+  toast("Lecture du planning…"); const P=await tryPlanning(f); if(P) showPlanning(f,P); else toast("Aucune vacation reconnue dans ce PDF. Saisis-les avec « + Vacation ».",6000); });
 /* ================= démarrage ================= */
-window.GPVX={ center, subDetail, subsSection, notepad, timerHtml };
+window.GPVX={ center, subDetail, subsSection, notepad, timerHtml, planningFiles, planningFromItems };
 applyTheme(); applyWall(); renderAmbUI(); renderOpenMode(); renderFree(); focusDisplay(); renderFocusStat();
 G.renderAll(); if(window.GPVM) window.GPVM.rerender();
 (async()=>{
